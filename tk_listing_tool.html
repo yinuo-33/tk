@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TK跨境上架管理系统</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary: #fe2c55;
+    --primary-dark: #c4003e;
+    --primary-light: #fff0f3;
+    --secondary: #010101;
+    --accent: #69c9d0;
+    --success: #00c851;
+    --warning: #ffbb33;
+    --danger: #ff4444;
+    --bg: #f8f9fa;
+    --card: #ffffff;
+    --border: #e8e8e8;
+    --text: #1a1a1a;
+    --text-muted: #888;
+    --sidebar-w: 220px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--secondary); position: fixed; top: 0; left: 0; height: 100vh;
+    display: flex; flex-direction: column; z-index: 100; overflow-y: auto;
+  }
+  .sidebar-logo {
+    padding: 20px 16px; border-bottom: 1px solid #222;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-logo .logo-icon {
+    width: 36px; height: 36px; background: var(--primary); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff;
+  }
+  .sidebar-logo span { color: #fff; font-weight: 700; font-size: 15px; line-height: 1.2; }
+  .sidebar-logo small { color: #aaa; font-size: 11px; display: block; }
+  .nav-section { padding: 12px 0; }
+  .nav-label { color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; padding: 6px 16px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer;
+    color: #ccc; font-size: 13px; transition: all 0.2s; border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: #1a1a1a; color: #fff; }
+  .nav-item.active { background: #1a1a1a; color: var(--primary); border-left-color: var(--primary); }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid #222; }
+  .sidebar-footer p { color: #555; font-size: 11px; text-align: center; }
+
+  /* ===== MAIN ===== */
+  .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar {
+    background: #fff; border-bottom: 1px solid var(--border); padding: 0 24px;
+    height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .badge { background: var(--primary); color: #fff; border-radius: 10px; font-size: 11px; padding: 2px 7px; }
+
+  .content { padding: 24px; flex: 1; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ===== CARDS ===== */
+  .card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .stat-card {
+    background: #fff; border-radius: 12px; border: 1px solid var(--border); padding: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--text-muted); }
+  .stat-card .value { font-size: 28px; font-weight: 700; }
+  .stat-card .change { font-size: 12px; }
+  .stat-card.red .value { color: var(--primary); }
+  .stat-card.green .value { color: var(--success); }
+  .stat-card.blue .value { color: #3d8ef8; }
+  .stat-card.orange .value { color: var(--warning); }
+
+  /* ===== BUTTONS ===== */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-warning { background: var(--warning); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ===== TABLE ===== */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--bg); padding: 10px 12px; text-align: left; font-weight: 600; color: var(--text-muted); font-size: 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .status-tag { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .tag-pending { background: #fff8e1; color: #f59e0b; }
+  .tag-listed { background: #e8f5e9; color: #22c55e; }
+  .tag-failed { background: #fce4ec; color: var(--primary); }
+  .tag-draft { background: #f3f4f6; color: #6b7280; }
+
+  /* ===== FORM ===== */
+  .form-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .form-group input, .form-group select, .form-group textarea {
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px;
+    background: #fff; transition: border 0.2s; outline: none; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+
+  /* ===== UPLOAD ZONE ===== */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center;
+    cursor: pointer; transition: all 0.2s; background: #fafafa;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: var(--primary-light); }
+  .upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-zone p { color: var(--text-muted); font-size: 13px; margin-top: 8px; }
+  .upload-zone strong { color: var(--primary); }
+
+  /* ===== TABS ===== */
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 10px 20px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ===== SEARCH BAR ===== */
+  .search-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 200px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; outline: none; }
+  .search-input:focus { border-color: var(--primary); }
+
+  /* ===== COMPETITOR CARD ===== */
+  .comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .comp-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.2s;
+  }
+  .comp-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .comp-img { width: 100%; height: 180px; object-fit: cover; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+  .comp-info { padding: 12px; }
+  .comp-title { font-size: 13px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .comp-price { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .comp-meta { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+  .comp-meta span { display: flex; align-items: center; gap: 3px; }
+
+  /* ===== PROFIT CALC ===== */
+  .calc-result { background: linear-gradient(135deg, var(--primary) 0%, #ff6b6b 100%); color: #fff; border-radius: 12px; padding: 20px; margin-top: 16px; }
+  .calc-result .result-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+  .calc-result .result-row:last-child { border: none; font-size: 18px; font-weight: 700; padding-top: 12px; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px; width: 90%; max-width: 680px; max-height: 85vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h3 { font-size: 16px; font-weight: 600; }
+  .modal-close { cursor: pointer; font-size: 20px; color: var(--text-muted); background: none; border: none; padding: 4px; }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ===== PROGRESS ===== */
+  .progress-bar { background: var(--border); border-radius: 10px; height: 8px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; border-radius: 10px; background: var(--primary); transition: width 0.4s; }
+
+  /* ===== ALERT ===== */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .alert-info { background: #e3f2fd; color: #1565c0; }
+  .alert-warning { background: #fff8e1; color: #e65100; }
+  .alert-success { background: #e8f5e9; color: #2e7d32; }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; background: #1a1a1a; color: #fff;
+    padding: 12px 20px; border-radius: 10px; font-size: 13px; z-index: 9999;
+    transform: translateY(80px); opacity: 0; transition: all 0.3s; pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 5px; }
+
+  /* ===== RESPONSIVE ADJUSTMENTS ===== */
+  .keyword-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .keyword-tag { background: var(--primary-light); color: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .keyword-tag:hover { background: var(--primary); color: #fff; }
+
+  .score-bar { display: flex; align-items: center; gap: 8px; }
+  .score-bar span { font-size: 12px; color: var(--text-muted); width: 60px; }
+  .score-stars { color: #fbbf24; font-size: 13px; }
+
+  .product-thumb { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: #f0f0f0; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid var(--border); }
+  .product-name { font-weight: 500; font-size: 13px; }
+  .product-sku { font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🛒</div>
+    <div>
+      <span>TK上架系统</span>
+      <small>跨境电商管理平台</small>
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">主导航</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="icon">📊</span> 数据概览
+    </div>
+    <div class="nav-item" onclick="showPage('listing')">
+      <span class="icon">📦</span> 批量上架
+    </div>
+    <div class="nav-item" onclick="showPage('competitor')">
+      <span class="icon">🔍</span> 竞品分析
+    </div>
+    <div class="nav-item" onclick="showPage('calculator')">
+      <span class="icon">💰</span> 利润计算
+    </div>
+    <div class="nav-item" onclick="showPage('records')">
+      <span class="icon">📋</span> 上架记录
+    </div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">工具</div>
+    <div class="nav-item" onclick="showPage('keyword')">
+      <span class="icon">🏷️</span> 关键词优化
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <span class="icon">⚙️</span> 账号设置
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <p>TK上架工具 v1.0<br>仅供内部使用</p>
+  </div>
+</div>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbar-title">数据概览</div>
+    <div class="topbar-actions">
+      <span style="font-size:13px;color:var(--text-muted)">TikTok Shop</span>
+      <span class="badge">已连接</span>
+      <button class="btn btn-primary btn-sm" onclick="showPage('listing')">+ 新建上架</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ===== PAGE: DASHBOARD ===== -->
+    <div class="page active" id="page-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card red">
+          <div class="label">📦 今日上架</div>
+          <div class="value" id="stat-today">0</div>
+          <div class="change" style="color:var(--success)">↑ 较昨日 +0</div>
+        </div>
+        <div class="stat-card green">
+          <div class="label">✅ 上架成功</div>
+          <div class="value" id="stat-success">0</div>
+          <div class="change" style="color:var(--text-muted)">总计</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="label">📋 草稿商品</div>
+          <div class="value" id="stat-draft">0</div>
+          <div class="change" style="color:var(--text-muted)">待处理</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="label">⚠️ 上架失败</div>
+          <div class="value" id="stat-failed">0</div>
+          <div class="change" style="color:var(--danger)">需处理</div>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        💡 <strong>使用提示：</strong>点击「批量上架」导入Excel商品数据，在「竞品分析」中输入关键词搜索同类竞品数据进行对比。
+      </div>
+
+      <div class="card">
+        <div class="card-title">🚀 快速操作</div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="showPage('listing')">📥 导入商品Excel</button>
+          <button class="btn btn-outline" onclick="downloadTemplate()">📄 下载上架模板</button>
+          <button class="btn btn-outline" onclick="showPage('competitor')">🔍 搜索竞品</button>
+          <button class="btn btn-outline" onclick="showPage('calculator')">💰 利润测算</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 近期上架记录</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>商品</th>
+                <th>类目</th>
+                <th>售价</th>
+                <th>状态</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody id="recent-records">
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px">暂无记录，请导入商品开始上架</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: LISTING ===== -->
+    <div class="page" id="page-listing">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'tab-import')">📥 导入商品</div>
+        <div class="tab" onclick="switchTab(this,'tab-manual')">✏️ 手动添加</div>
+        <div class="tab" onclick="switchTab(this,'tab-list')">📋 商品列表</div>
+      </div>
+
+      <!-- TAB: IMPORT -->
+      <div id="tab-import">
+        <div class="card">
+          <div class="card-title">📥 Excel/CSV 批量导入</div>
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="handleDragOver(event)" ondrop="handleDrop(event)">
+            <div class="icon">📁</div>
+            <h3 style="font-size:15px">拖拽文件到此处，或点击选择文件</h3>
+            <p>支持 .xlsx / .xls / .csv 格式</p>
+            <p>建议使用 <strong>帕丝专属模板</strong> 导入，字段自动对应</p>
+          </div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)">
+          <div style="margin-top:12px">
+            <button class="btn btn-outline" onclick="downloadTemplate()">📄 下载标准模板</button>
+            <span style="margin-left:10px;font-size:12px;color:var(--text-muted)">含示例数据，可直接填写后导入</span>
+          </div>
+        </div>
+
+        <div class="card" id="preview-section" style="display:none">
+          <div class="card-title">👁️ 数据预览 <span id="preview-count" style="font-weight:400;color:var(--text-muted);font-size:13px"></span></div>
+          <div class="alert alert-warning" id="preview-alert"></div>
+          <div class="table-wrap">
+            <table id="preview-table">
+              <thead id="preview-thead"></thead>
+              <tbody id="preview-tbody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:16px" class="btn-group">
+            <button class="btn btn-primary" onclick="importToList()">✅ 确认导入</button>
+            <button class="btn btn-outline" onclick="clearPreview()">❌ 清除</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: MANUAL -->
+      <div id="tab-manual" style="display:none">
+        <div class="card">
+          <div class="card-title">✏️ 手动添加商品</div>
+          <div class="form-row">
+            <div class="form-group" style="grid-column:span 2">
+              <label>商品标题 *</label>
+              <input type="text" id="m-title" placeholder="输入商品英文标题，建议60-80字符">
+            </div>
+            <div class="form-group">
+              <label>商品类目</label>
+              <select id="m-category">
+                <option>服装配饰</option><option>电子产品</option><option>美妆个护</option>
+                <option>家居生活</option><option>运动户外</option><option>宠物用品</option>
+                <option>母婴用品</option><option>食品饮料</option><option>其他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>售价（USD）*</label>
+              <input type="number" id="m-price" placeholder="9.99">
+            </div>
+            <div class="form-group">
+              <label>成本价（CNY）</label>
+              <input type="number" id="m-cost" placeholder="30">
+            </div>
+            <div class="form-group">
+              <label>库存数量</label>
+              <input type="number" id="m-stock" placeholder="100">
+            </div>
+            <div class="form-group">
+              <label>SKU编码</label>
+              <input type="text" id="m-sku" placeholder="自动生成可留空">
+            </div>
+            <div class="form-group">
+              <label>主图链接</label>
+              <input type="text" id="m-image" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>商品描述</label>
+            <textarea id="m-desc" placeholder="详细描述商品特点、材质、尺寸等信息..."></textarea>
+          </div>
+          <div class="form-group" style="margin-top:8px">
+            <label>SEO关键词（用逗号分隔）</label>
+            <input type="text" id="m-keywords" placeholder="例：fashion dress, women clothing, summer dress">
+          </div>
+          <div style="margin-top:16px" class="btn-group">
+            <button class="btn btn-primary" onclick="addManualProduct()">➕ 添加到列表</button>
+            <button class="btn btn-outline" onclick="clearManualForm()">🔄 重置</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: LIST -->
+      <div id="tab-list" style="display:none">
+        <div class="card">
+          <div class="card-title">📋 商品列表</div>
+          <div class="search-bar">
+            <input type="text" class="search-input" placeholder="搜索商品名称/SKU..." id="product-search" oninput="filterProducts()">
+            <select id="status-filter" onchange="filterProducts()" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none">
+              <option value="">全部状态</option>
+              <option value="draft">草稿</option>
+              <option value="pending">待上架</option>
+              <option value="listed">已上架</option>
+              <option value="failed">上架失败</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="batchList()">🚀 批量上架</button>
+            <button class="btn btn-outline btn-sm" onclick="exportList()">📤 导出列表</button>
+            <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑️ 清空</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="check-all" onchange="toggleCheckAll(this)"></th>
+                  <th>商品</th>
+                  <th>类目</th>
+                  <th>售价</th>
+                  <th>成本</th>
+                  <th>利润率</th>
+                  <th>库存</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="product-list-body">
+                <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px">暂无商品，请先导入或手动添加</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-muted)" id="list-count"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: COMPETITOR ===== -->
+    <div class="page" id="page-competitor">
+      <div class="card">
+        <div class="card-title">🔍 竞品搜索分析</div>
+        <div class="alert alert-warning">
+          ⚠️ 竞品数据为模拟演示数据。实际抓取需配置代理环境，系统已预留数据接口，可接入真实数据源。
+        </div>
+        <div class="search-bar">
+          <input type="text" class="search-input" id="comp-search-input" placeholder="输入关键词搜索竞品，如：summer dress, phone case...">
+          <select id="comp-sort" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none">
+            <option value="sales">按销量排序</option>
+            <option value="price_asc">价格从低到高</option>
+            <option value="price_desc">价格从高到低</option>
+            <option value="rating">按评分排序</option>
+          </select>
+          <button class="btn btn-primary" onclick="searchCompetitors()">🔍 搜索</button>
+        </div>
+        <div class="keyword-tags" id="hot-keywords">
+          <span style="font-size:12px;color:var(--text-muted)">热门词：</span>
+        </div>
+      </div>
+
+      <div id="comp-loading" style="display:none;text-align:center;padding:40px;color:var(--text-muted)">
+        <div style="font-size:30px;margin-bottom:8px">⏳</div>
+        <p>正在搜索竞品数据...</p>
+      </div>
+
+      <div id="comp-results" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:13px;color:var(--text-muted)" id="comp-result-count"></div>
+          <div class="tabs" style="margin-bottom:0;border:none">
+            <div class="tab active" onclick="switchCompView('grid',this)" style="padding:6px 14px">⊞ 卡片</div>
+            <div class="tab" onclick="switchCompView('table',this)" style="padding:6px 14px">≡ 列表</div>
+          </div>
+        </div>
+
+        <!-- 竞品统计摘要 -->
+        <div class="card" id="comp-summary">
+          <div class="card-title">📊 市场分析摘要</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+            <div style="text-align:center">
+              <div style="font-size:22px;font-weight:700;color:var(--primary)" id="avg-price">-</div>
+              <div style="font-size:12px;color:var(--text-muted)">平均售价</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:22px;font-weight:700;color:var(--success)" id="avg-sales">-</div>
+              <div style="font-size:12px;color:var(--text-muted)">平均月销量</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:22px;font-weight:700;color:#3d8ef8" id="avg-rating">-</div>
+              <div style="font-size:12px;color:var(--text-muted)">平均评分</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:22px;font-weight:700;color:var(--warning)" id="price-range">-</div>
+              <div style="font-size:12px;color:var(--text-muted)">价格区间</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 卡片视图 -->
+        <div class="comp-grid" id="comp-card-view"></div>
+
+        <!-- 表格视图 -->
+        <div class="card" id="comp-table-view" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>商品</th>
+                  <th>价格(USD)</th>
+                  <th>月销量</th>
+                  <th>评分</th>
+                  <th>评价数</th>
+                  <th>店铺</th>
+                  <th>关键词密度</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="comp-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: CALCULATOR ===== -->
+    <div class="page" id="page-calculator">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-title">💰 利润测算器</div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>产品成本（元/CNY）</label>
+            <input type="number" id="c-cost" value="25" oninput="calcProfit()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>头程运费（元/件，CNY）</label>
+            <input type="number" id="c-shipping" value="8" oninput="calcProfit()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>TikTok平台佣金（%）</label>
+            <input type="number" id="c-commission" value="5" oninput="calcProfit()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>TikTok达人佣金（%）</label>
+            <input type="number" id="c-creator" value="10" oninput="calcProfit()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>广告费用（元/件预估，CNY）</label>
+            <input type="number" id="c-ads" value="5" oninput="calcProfit()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>人民币/美元 汇率</label>
+            <input type="number" id="c-rate" value="7.25" step="0.01" oninput="calcProfit()">
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label>目标售价（USD）</label>
+            <input type="number" id="c-sell" value="12.99" step="0.01" oninput="calcProfit()">
+          </div>
+          <div class="form-group">
+            <label>目标利润率（%）- 反推建议售价</label>
+            <input type="number" id="c-target" value="30" oninput="calcSuggest()">
+          </div>
+        </div>
+
+        <div>
+          <div class="calc-result">
+            <div style="font-size:14px;font-weight:600;margin-bottom:12px;opacity:0.9">📊 测算结果</div>
+            <div class="result-row"><span>产品成本（USD）</span><span id="r-cost">-</span></div>
+            <div class="result-row"><span>头程运费（USD）</span><span id="r-shipping">-</span></div>
+            <div class="result-row"><span>平台+达人佣金（USD）</span><span id="r-comm">-</span></div>
+            <div class="result-row"><span>广告费（USD）</span><span id="r-ads">-</span></div>
+            <div class="result-row"><span>总成本（USD）</span><span id="r-total-cost">-</span></div>
+            <div class="result-row"><span>售价（USD）</span><span id="r-sell">-</span></div>
+            <div class="result-row"><span>毛利润（USD）</span><span id="r-profit">-</span></div>
+            <div class="result-row"><span>🎯 利润率</span><span id="r-margin">-</span></div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-title">💡 反推建议售价</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">按目标利润率计算最低售价</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="font-size:30px;font-weight:700;color:var(--primary)" id="suggest-price">-</div>
+              <div style="font-size:13px;color:var(--text-muted)">USD<br>（达到<span id="suggest-rate">30</span>%利润率）</div>
+            </div>
+            <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+              建议定价区间：<span id="price-range-suggest" style="color:var(--primary);font-weight:500">-</span>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-title">📦 批量测算</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">预计月销量盈亏分析</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>预计月销量（件）</label>
+                <input type="number" id="c-monthly" value="200" oninput="calcMonthly()">
+              </div>
+            </div>
+            <div style="background:var(--bg);border-radius:8px;padding:12px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                <span>月销售额（USD）</span><span style="font-weight:600" id="m-revenue">-</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                <span>月总成本（USD）</span><span id="m-cost-total">-</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-weight:600;color:var(--success)">
+                <span>月净利润（USD）</span><span id="m-profit">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: RECORDS ===== -->
+    <div class="page" id="page-records">
+      <div class="card">
+        <div class="card-title">📋 上架记录管理</div>
+        <div class="search-bar">
+          <input type="text" class="search-input" placeholder="搜索商品名称/SKU/状态...">
+          <select style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none" id="record-status-filter" onchange="filterRecords()">
+            <option value="">全部状态</option>
+            <option value="listed">已上架</option>
+            <option value="pending">进行中</option>
+            <option value="failed">失败</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="exportRecords()">📤 导出记录</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>商品名称</th>
+                <th>SKU</th>
+                <th>售价</th>
+                <th>状态</th>
+                <th>上架时间</th>
+                <th>TK商品ID</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="records-body">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px">暂无上架记录</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: KEYWORD ===== -->
+    <div class="page" id="page-keyword">
+      <div class="card">
+        <div class="card-title">🏷️ 标题关键词优化</div>
+        <div class="alert alert-info">
+          💡 输入商品信息，系统自动生成TikTok Shop SEO优化标题和关键词建议
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="grid-column:span 2">
+            <label>原始标题 / 商品描述</label>
+            <input type="text" id="kw-input" placeholder="例：连衣裙 夏季 碎花 女装 / summer floral dress women">
+          </div>
+          <div class="form-group">
+            <label>商品类目</label>
+            <select id="kw-category">
+              <option>Women's Clothing</option><option>Men's Clothing</option>
+              <option>Electronics</option><option>Beauty & Personal Care</option>
+              <option>Home & Garden</option><option>Sports & Outdoors</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>目标市场</label>
+            <select id="kw-market">
+              <option>US（美国）</option><option>UK（英国）</option>
+              <option>SEA（东南亚）</option><option>Middle East（中东）</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="generateKeywords()">✨ 生成优化建议</button>
+      </div>
+
+      <div id="kw-result" style="display:none">
+        <div class="card">
+          <div class="card-title">✅ 优化标题方案</div>
+          <div id="kw-titles"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🏷️ 推荐关键词</div>
+          <div class="keyword-tags" id="kw-tags"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: SETTINGS ===== -->
+    <div class="page" id="page-settings">
+      <div class="card">
+        <div class="card-title">⚙️ TikTok Shop 账号配置</div>
+        <div class="alert alert-warning">
+          ⚠️ 自动上架功能需配置账号信息。当前为演示模式，实际使用请确保遵守TikTok Shop使用条款。
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>账号邮箱</label>
+            <input type="email" id="s-email" placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label>店铺名称</label>
+            <input type="text" id="s-shop" placeholder="My TikTok Shop">
+          </div>
+          <div class="form-group">
+            <label>主要市场</label>
+            <select id="s-market">
+              <option>美国 (US)</option><option>英国 (UK)</option><option>东南亚 (SEA)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>默认货币</label>
+            <select id="s-currency">
+              <option>USD</option><option>GBP</option><option>SGD</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-title" style="margin-top:8px">🤖 自动化配置（高级）</div>
+        <div class="alert alert-info">
+          此功能通过浏览器自动化实现上架，需本地安装 Python + Playwright。
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>上架间隔（秒）</label>
+            <input type="number" id="s-interval" value="5" min="3">
+          </div>
+          <div class="form-group">
+            <label>失败重试次数</label>
+            <input type="number" id="s-retry" value="3" min="1">
+          </div>
+        </div>
+        <div class="btn-group" style="margin-top:8px">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 保存设置</button>
+          <button class="btn btn-outline" onclick="showPlaywrightGuide()">📖 查看自动化配置指南</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ===== MODAL: PRODUCT EDIT ===== -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>✏️ 编辑商品</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group" style="grid-column:span 2">
+          <label>商品标题 *</label>
+          <input type="text" id="edit-title">
+        </div>
+        <div class="form-group">
+          <label>类目</label>
+          <select id="edit-category">
+            <option>服装配饰</option><option>电子产品</option><option>美妆个护</option>
+            <option>家居生活</option><option>运动户外</option><option>其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>售价（USD）</label>
+          <input type="number" id="edit-price" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>成本（CNY）</label>
+          <input type="number" id="edit-cost">
+        </div>
+        <div class="form-group">
+          <label>库存</label>
+          <input type="number" id="edit-stock">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>商品描述</label>
+        <textarea id="edit-desc"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label>关键词</label>
+        <input type="text" id="edit-keywords">
+      </div>
+      <input type="hidden" id="edit-index">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit')">取消</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: COMPETITOR DETAIL ===== -->
+<div class="modal-overlay" id="modal-comp">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="comp-modal-title">竞品详情</h3>
+      <button class="modal-close" onclick="closeModal('modal-comp')">✕</button>
+    </div>
+    <div class="modal-body" id="comp-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-comp')">关闭</button>
+      <button class="btn btn-primary" onclick="copyCompToListing()">📋 参考此竞品创建商品</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: PLAYWRIGHT GUIDE ===== -->
+<div class="modal-overlay" id="modal-guide">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📖 自动化上架配置指南</h3>
+      <button class="modal-close" onclick="closeModal('modal-guide')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info">此指南帮助你配置本地Python自动化脚本，实现真正的自动上架。</div>
+      <h4 style="margin-bottom:8px;font-size:14px">🔧 环境要求</h4>
+      <pre style="background:#1a1a1a;color:#e0e0e0;padding:14px;border-radius:8px;font-size:12px;overflow-x:auto;margin-bottom:12px">pip install playwright
+playwright install chromium</pre>
+      <h4 style="margin-bottom:8px;font-size:14px">📝 自动上架脚本示例</h4>
+      <pre style="background:#1a1a1a;color:#e0e0e0;padding:14px;border-radius:8px;font-size:12px;overflow-x:auto">from playwright.sync_api import sync_playwright
+import json, time
+
+products = json.load(open('products.json'))
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    page = browser.new_page()
+    
+    # 登录TikTok Seller Center
+    page.goto('https://seller.tiktokglobalshop.com')
+    # 手动完成登录后继续
+    input("请手动登录后按回车...")
+    
+    for product in products:
+        # 导航到添加商品页面
+        page.goto('https://seller.tiktokglobalshop.com/product/add')
+        
+        # 填写商品信息
+        page.fill('#product-name', product['title'])
+        page.fill('#price', str(product['price']))
+        page.fill('#stock', str(product['stock']))
+        
+        # 提交
+        page.click('#submit-btn')
+        time.sleep(5)  # 等待提交
+        
+        print(f"✅ 已上架: {product['title']}")
+    
+    browser.close()</pre>
+      <div class="alert alert-warning" style="margin-top:12px">
+        ⚠️ 注意：自动化操作可能违反平台使用条款，建议仅用于个人效率提升，不可大量滥用。
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-guide')">关闭</button>
+      <button class="btn btn-primary" onclick="exportProductsJSON()">📥 导出商品JSON</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== STATE =====
+let products = [];
+let records = [];
+let currentCompProduct = null;
+let settings = { email:'', shop:'', market:'US', currency:'USD', interval:5, retry:3 };
+
+const HOT_KEYWORDS = ['summer dress','phone case','kitchen gadget','pet supplies','beauty tool','sports wear','home decor','baby clothes'];
+const CATEGORIES_EN = {
+  '服装配饰':'Women\'s Clothing','电子产品':'Electronics','美妆个护':'Beauty & Personal Care',
+  '家居生活':'Home & Garden','运动户外':'Sports & Outdoors','宠物用品':'Pet Supplies',
+  '母婴用品':'Baby & Kids','食品饮料':'Food & Beverage','其他':'Others'
+};
+
+// ===== NAV =====
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    if(item.getAttribute('onclick') === `showPage('${id}')`) item.classList.add('active');
+  });
+  const titles = { dashboard:'数据概览', listing:'批量上架管理', competitor:'竞品分析', calculator:'利润测算器', records:'上架记录', keyword:'关键词优化', settings:'账号设置' };
+  document.getElementById('topbar-title').textContent = titles[id] || id;
+  if(id === 'listing') { switchTab(null,'tab-import'); refreshProductList(); }
+  if(id === 'records') renderRecords();
+  if(id === 'calculator') calcProfit();
+  if(id === 'competitor') renderHotKeywords();
+  if(id === 'dashboard') updateDashboard();
+}
+
+function switchTab(el, tabId) {
+  const tabs = el ? el.closest('.tabs').querySelectorAll('.tab') : document.querySelectorAll('#page-listing .tabs .tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const allTabs = ['tab-import','tab-manual','tab-list'];
+  allTabs.forEach(t => { const el2 = document.getElementById(t); if(el2) el2.style.display = 'none'; });
+  const target = document.getElementById(tabId);
+  if(target) target.style.display = 'block';
+  if(tabId === 'tab-list') refreshProductList();
+}
+
+// ===== UPLOAD =====
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.add('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file);
+}
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if(file) processFile(file);
+}
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header:1 });
+      if(data.length < 2) { showToast('❌ 文件内容为空或格式错误'); return; }
+      showPreview(data);
+    } catch(err) {
+      showToast('❌ 文件解析失败：' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+let previewData = [];
+function showPreview(data) {
+  previewData = data;
+  const headers = data[0];
+  const rows = data.slice(1).filter(r => r.some(c => c));
+  
+  document.getElementById('preview-count').textContent = `共 ${rows.length} 条商品数据`;
+  document.getElementById('preview-alert').textContent = `📋 识别到 ${headers.length} 个字段，${rows.length} 条数据，请确认后导入`;
+  document.getElementById('preview-alert').style.display = 'block';
+  
+  const thead = document.getElementById('preview-thead');
+  thead.innerHTML = '<tr>' + headers.map(h => `<th>${h||'-'}</th>`).join('') + '</tr>';
+  
+  const tbody = document.getElementById('preview-tbody');
+  tbody.innerHTML = rows.slice(0,5).map(row => 
+    '<tr>' + headers.map((_, i) => `<td>${row[i]??''}</td>`).join('') + '</tr>'
+  ).join('');
+  if(rows.length > 5) tbody.innerHTML += `<tr><td colspan="${headers.length}" style="text-align:center;color:var(--text-muted)">...还有 ${rows.length-5} 条数据</td></tr>`;
+  
+  document.getElementById('preview-section').style.display = 'block';
+}
+
+function importToList() {
+  if(!previewData.length) return;
+  const headers = previewData[0].map(h => String(h||'').toLowerCase().trim());
+  const rows = previewData.slice(1).filter(r => r.some(c => c));
+  
+  const fieldMap = {
+    title: ['标题','title','商品名称','name','product','商品标题'],
+    price: ['售价','price','价格','销售价','usd'],
+    cost: ['成本','cost','进价','采购价'],
+    stock: ['库存','stock','数量','qty','quantity'],
+    category: ['类目','category','分类'],
+    desc: ['描述','description','详情','desc'],
+    sku: ['sku','编码','货号'],
+    keywords: ['关键词','keywords','tags','标签']
+  };
+  
+  const idxMap = {};
+  Object.entries(fieldMap).forEach(([field, aliases]) => {
+    const idx = headers.findIndex(h => aliases.some(a => h.includes(a)));
+    if(idx >= 0) idxMap[field] = idx;
+  });
+  
+  const newProducts = rows.map((row, i) => ({
+    id: Date.now() + i,
+    title: row[idxMap.title] || `商品 ${products.length + i + 1}`,
+    price: parseFloat(row[idxMap.price]) || 0,
+    cost: parseFloat(row[idxMap.cost]) || 0,
+    stock: parseInt(row[idxMap.stock]) || 0,
+    category: row[idxMap.category] || '其他',
+    desc: row[idxMap.desc] || '',
+    sku: row[idxMap.sku] || `SKU${String(Date.now()+i).slice(-6)}`,
+    keywords: row[idxMap.keywords] || '',
+    status: 'pending',
+    createdAt: new Date().toLocaleString()
+  }));
+  
+  products.push(...newProducts);
+  clearPreview();
+  updateDashboard();
+  showToast(`✅ 成功导入 ${newProducts.length} 条商品数据`);
+  switchTab(null, 'tab-list');
+  
+  // 更新nav
+  const tabs = document.querySelectorAll('#page-listing .tabs .tab');
+  tabs.forEach((t,i) => { t.classList.toggle('active', i===2); });
+}
+
+function clearPreview() {
+  previewData = [];
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+}
+
+// ===== MANUAL ADD =====
+function addManualProduct() {
+  const title = document.getElementById('m-title').value.trim();
+  if(!title) { showToast('❌ 请输入商品标题'); return; }
+  const product = {
+    id: Date.now(),
+    title,
+    price: parseFloat(document.getElementById('m-price').value) || 0,
+    cost: parseFloat(document.getElementById('m-cost').value) || 0,
+    stock: parseInt(document.getElementById('m-stock').value) || 0,
+    category: document.getElementById('m-category').value,
+    desc: document.getElementById('m-desc').value,
+    sku: document.getElementById('m-sku').value || `SKU${String(Date.now()).slice(-6)}`,
+    keywords: document.getElementById('m-keywords').value,
+    status: 'draft',
+    createdAt: new Date().toLocaleString()
+  };
+  products.push(product);
+  clearManualForm();
+  updateDashboard();
+  showToast('✅ 商品已添加');
+  switchTab(null,'tab-list');
+  const tabs = document.querySelectorAll('#page-listing .tabs .tab');
+  tabs.forEach((t,i) => t.classList.toggle('active', i===2));
+}
+function clearManualForm() {
+  ['m-title','m-price','m-cost','m-stock','m-sku','m-image','m-desc','m-keywords'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+}
+
+// ===== PRODUCT LIST =====
+function refreshProductList() {
+  const search = (document.getElementById('product-search')?.value||'').toLowerCase();
+  const statusF = document.getElementById('status-filter')?.value||'';
+  const filtered = products.filter(p => {
+    const matchSearch = p.title.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search);
+    const matchStatus = !statusF || p.status === statusF;
+    return matchSearch && matchStatus;
+  });
+  
+  const tbody = document.getElementById('product-list-body');
+  if(!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px">${products.length?'没有符合条件的商品':'暂无商品，请先导入或手动添加'}</td></tr>`;
+    document.getElementById('list-count').textContent = '';
+    return;
+  }
+  
+  tbody.innerHTML = filtered.map((p, i) => {
+    const margin = p.price && p.cost ? ((p.price - p.cost/7.25) / p.price * 100).toFixed(1) : '-';
+    const marginColor = parseFloat(margin) > 30 ? 'var(--success)' : parseFloat(margin) > 15 ? 'var(--warning)' : 'var(--danger)';
+    const statusMap = { draft:'tag-draft', pending:'tag-pending', listed:'tag-listed', failed:'tag-failed' };
+    const statusText = { draft:'草稿', pending:'待上架', listed:'已上架', failed:'失败' };
+    return `<tr>
+      <td><input type="checkbox" class="row-check" data-id="${p.id}"></td>
+      <td>
+        <div class="product-thumb">📦</div>
+        <span style="margin-left:8px">
+          <div class="product-name">${p.title.length>30?p.title.slice(0,30)+'...':p.title}</div>
+          <div class="product-sku">${p.sku}</div>
+        </span>
+      </td>
+      <td>${p.category}</td>
+      <td style="font-weight:600;color:var(--primary)">$${p.price||'-'}</td>
+      <td>¥${p.cost||'-'}</td>
+      <td style="color:${marginColor}">${margin}%</td>
+      <td>${p.stock}</td>
+      <td><span class="status-tag ${statusMap[p.status]||'tag-draft'}">${statusText[p.status]||p.status}</span></td>
+      <td>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" onclick="editProduct(${products.indexOf(p)})">✏️</button>
+          <button class="btn btn-success btn-sm" onclick="listProduct(${products.indexOf(p)})">🚀</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProduct(${products.indexOf(p)})">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('list-count').textContent = `显示 ${filtered.length} / ${products.length} 条商品`;
+}
+function filterProducts() { refreshProductList(); }
+
+function editProduct(idx) {
+  const p = products[idx];
+  document.getElementById('edit-title').value = p.title;
+  document.getElementById('edit-price').value = p.price;
+  document.getElementById('edit-cost').value = p.cost;
+  document.getElementById('edit-stock').value = p.stock;
+  document.getElementById('edit-desc').value = p.desc||'';
+  document.getElementById('edit-keywords').value = p.keywords||'';
+  document.getElementById('edit-index').value = idx;
+  document.getElementById('modal-edit').classList.add('show');
+}
+function saveEdit() {
+  const idx = parseInt(document.getElementById('edit-index').value);
+  products[idx].title = document.getElementById('edit-title').value;
+  products[idx].price = parseFloat(document.getElementById('edit-price').value)||0;
+  products[idx].cost = parseFloat(document.getElementById('edit-cost').value)||0;
+  products[idx].stock = parseInt(document.getElementById('edit-stock').value)||0;
+  products[idx].desc = document.getElementById('edit-desc').value;
+  products[idx].keywords = document.getElementById('edit-keywords').value;
+  closeModal('modal-edit');
+  refreshProductList();
+  showToast('✅ 商品信息已更新');
+}
+function deleteProduct(idx) {
+  if(!confirm('确认删除这件商品？')) return;
+  products.splice(idx, 1);
+  refreshProductList();
+  updateDashboard();
+  showToast('🗑️ 已删除');
+}
+function listProduct(idx) {
+  const p = products[idx];
+  p.status = 'listed';
+  p.listedAt = new Date().toLocaleString();
+  p.tkId = 'TK' + Math.random().toString(36).substr(2,9).toUpperCase();
+  records.unshift({...p});
+  refreshProductList();
+  updateDashboard();
+  showToast(`✅ "${p.title.slice(0,20)}..." 已标记为上架`);
+}
+function batchList() {
+  const checked = document.querySelectorAll('.row-check:checked');
+  if(!checked.length) { showToast('⚠️ 请先勾选要上架的商品'); return; }
+  checked.forEach(cb => {
+    const idx = products.findIndex(p => p.id == cb.dataset.id);
+    if(idx >= 0) {
+      products[idx].status = 'listed';
+      products[idx].listedAt = new Date().toLocaleString();
+      products[idx].tkId = 'TK' + Math.random().toString(36).substr(2,9).toUpperCase();
+      records.unshift({...products[idx]});
+    }
+  });
+  refreshProductList();
+  updateDashboard();
+  showToast(`✅ 已批量上架 ${checked.length} 件商品`);
+}
+function toggleCheckAll(el) {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
+}
+function clearAll() {
+  if(!products.length) return;
+  if(!confirm(`确认清空全部 ${products.length} 件商品？`)) return;
+  products = [];
+  refreshProductList();
+  updateDashboard();
+  showToast('🗑️ 已清空商品列表');
+}
+function exportList() {
+  if(!products.length) { showToast('❌ 没有商品可导出'); return; }
+  const data = products.map(p => ({ 标题:p.title, 类目:p.category, 售价USD:p.price, 成本CNY:p.cost, 库存:p.stock, SKU:p.sku, 关键词:p.keywords, 状态:p.status }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '商品列表');
+  XLSX.writeFile(wb, `商品列表_${new Date().toLocaleDateString()}.xlsx`);
+  showToast('📤 已导出Excel');
+}
+
+// ===== TEMPLATE DOWNLOAD =====
+function downloadTemplate() {
+  const headers = ['标题(title)*', '售价USD*', '成本CNY', '库存(qty)', '类目(category)', '描述(description)', 'SKU', '关键词(keywords)'];
+  const sample = [
+    ['Floral Summer Dress Women Casual V-Neck', '12.99', '28', '100', '服装配饰', 'Elegant floral print dress, perfect for summer', 'SKU001', 'summer dress, women fashion, floral'],
+    ['Wireless Bluetooth Earbuds TWS', '19.99', '45', '50', '电子产品', 'High quality sound, 8h battery life', 'SKU002', 'earbuds, bluetooth, wireless audio']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+  ws['!cols'] = headers.map(() => ({ wch: 20 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '商品模板');
+  XLSX.writeFile(wb, '上架商品模板.xlsx');
+  showToast('📄 模板已下载');
+}
+
+// ===== COMPETITOR =====
+function renderHotKeywords() {
+  const cont = document.getElementById('hot-keywords');
+  cont.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">热门词：</span>' +
+    HOT_KEYWORDS.map(kw => `<span class="keyword-tag" onclick="document.getElementById('comp-search-input').value='${kw}';searchCompetitors()">${kw}</span>`).join('');
+}
+
+function generateMockProducts(keyword, count=12) {
+  const categories = ['服装','电子','美妆','家居','运动'];
+  const shops = ['TopSeller Store','BestDeals Shop','QuickShip Mall','TrendyGoods','ValueHub'];
+  const emojis = ['👗','📱','💄','🏠','⚽','👟','🎒','🎧','💍','🌿'];
+  return Array.from({length:count}, (_,i) => {
+    const basePrice = 5 + Math.random() * 45;
+    const sales = Math.floor(200 + Math.random() * 5000);
+    const rating = (3.5 + Math.random() * 1.5).toFixed(1);
+    return {
+      id: i+1,
+      title: `${keyword} ${['Premium','Fashion','Quality','Hot Sale','Trending'][i%5]} ${['2024 New','Best Seller','Top Rated','Limited','Popular'][i%5]}`,
+      price: basePrice.toFixed(2),
+      sales, rating: parseFloat(rating),
+      reviews: Math.floor(sales * 0.3),
+      shop: shops[i%shops.length],
+      category: categories[i%categories.length],
+      emoji: emojis[i%emojis.length],
+      keywords: [keyword, 'trending', 'bestseller', 'quality'].join(', '),
+      keywordDensity: Math.floor(3 + Math.random()*5)
+    };
+  });
+}
+
+function searchCompetitors() {
+  const kw = document.getElementById('comp-search-input').value.trim();
+  if(!kw) { showToast('⚠️ 请输入搜索关键词'); return; }
+  document.getElementById('comp-loading').style.display = 'block';
+  document.getElementById('comp-results').style.display = 'none';
+  
+  setTimeout(() => {
+    const data = generateMockProducts(kw, 12);
+    const sortBy = document.getElementById('comp-sort').value;
+    data.sort((a,b) => {
+      if(sortBy==='price_asc') return a.price-b.price;
+      if(sortBy==='price_desc') return b.price-a.price;
+      if(sortBy==='rating') return b.rating-a.rating;
+      return b.sales-a.sales;
+    });
+    renderCompetitors(data, kw);
+    document.getElementById('comp-loading').style.display = 'none';
+    document.getElementById('comp-results').style.display = 'block';
+  }, 1200);
+}
+
+function renderCompetitors(data, kw) {
+  const prices = data.map(d => parseFloat(d.price));
+  const avgPrice = (prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(2);
+  const avgSales = Math.floor(data.reduce((a,b)=>a+b.sales,0)/data.length);
+  const avgRating = (data.reduce((a,b)=>a+b.rating,0)/data.length).toFixed(1);
+  const minP = Math.min(...prices).toFixed(2);
+  const maxP = Math.max(...prices).toFixed(2);
+  
+  document.getElementById('avg-price').textContent = '$'+avgPrice;
+  document.getElementById('avg-sales').textContent = avgSales.toLocaleString();
+  document.getElementById('avg-rating').textContent = avgRating+'⭐';
+  document.getElementById('price-range').textContent = `$${minP}-$${maxP}`;
+  document.getElementById('comp-result-count').textContent = `"${kw}" 共找到 ${data.length} 个竞品`;
+  
+  // 卡片
+  document.getElementById('comp-card-view').innerHTML = data.map(p => `
+    <div class="comp-card" onclick="showCompDetail(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+      <div class="comp-img">${p.emoji}</div>
+      <div class="comp-info">
+        <div class="comp-title">${p.title}</div>
+        <div class="comp-price">$${p.price}</div>
+        <div class="comp-meta">
+          <span>🛒 ${p.sales.toLocaleString()}件/月</span>
+          <span>⭐ ${p.rating}</span>
+          <span>💬 ${p.reviews}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">🏪 ${p.shop}</div>
+      </div>
+    </div>
+  `).join('');
+  
+  // 表格
+  document.getElementById('comp-table-body').innerHTML = data.map(p => `
+    <tr>
+      <td>
+        <span style="font-size:20px">${p.emoji}</span>
+        <span style="margin-left:8px;font-size:13px">${p.title.length>30?p.title.slice(0,30)+'...':p.title}</span>
+      </td>
+      <td style="font-weight:600;color:var(--primary)">$${p.price}</td>
+      <td>${p.sales.toLocaleString()}</td>
+      <td>${p.rating}⭐</td>
+      <td>${p.reviews}</td>
+      <td>${p.shop}</td>
+      <td>
+        <div class="progress-bar" style="width:80px">
+          <div class="progress-fill" style="width:${p.keywordDensity*10}%"></div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted)">${p.keywordDensity}/10</span>
+      </td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="showCompDetail(${JSON.stringify(p).replace(/"/g,'&quot;')})">详情</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function switchCompView(type, el) {
+  document.querySelectorAll('#comp-results .tab').forEach(t => t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.getElementById('comp-card-view').style.display = type==='grid'?'grid':'none';
+  document.getElementById('comp-table-view').style.display = type==='table'?'block':'none';
+}
+
+function showCompDetail(p) {
+  if(typeof p === 'string') p = JSON.parse(p);
+  currentCompProduct = p;
+  document.getElementById('comp-modal-title').textContent = p.title;
+  document.getElementById('comp-modal-body').innerHTML = `
+    <div style="text-align:center;font-size:60px;margin-bottom:16px">${p.emoji}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:var(--bg);border-radius:8px;padding:12px">
+        <div style="font-size:12px;color:var(--text-muted)">售价</div>
+        <div style="font-size:22px;font-weight:700;color:var(--primary)">$${p.price}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:12px">
+        <div style="font-size:12px;color:var(--text-muted)">月销量</div>
+        <div style="font-size:22px;font-weight:700;color:var(--success)">${p.sales.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:12px">
+        <div style="font-size:12px;color:var(--text-muted)">评分</div>
+        <div style="font-size:22px;font-weight:700;color:#fbbf24">${p.rating} ⭐</div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:12px">
+        <div style="font-size:12px;color:var(--text-muted)">评价数</div>
+        <div style="font-size:22px;font-weight:700;color:#3d8ef8">${p.reviews}</div>
+      </div>
+    </div>
+    <div style="font-size:13px;margin-bottom:8px"><strong>🏪 店铺：</strong>${p.shop}</div>
+    <div style="font-size:13px;margin-bottom:8px"><strong>📂 类目：</strong>${p.category}</div>
+    <div style="font-size:13px;margin-bottom:8px"><strong>🏷️ 关键词：</strong>${p.keywords}</div>
+    <div style="margin-top:16px;padding:12px;background:var(--primary-light);border-radius:8px;font-size:13px">
+      <strong>💡 参考建议：</strong>定价可参考 $${(parseFloat(p.price)*0.9).toFixed(2)} - $${(parseFloat(p.price)*1.1).toFixed(2)}，
+      主打关键词 "${p.keywords.split(',')[0]}" 进行SEO优化，
+      该价位月销量约 ${Math.floor(p.sales*0.3).toLocaleString()} - ${p.sales.toLocaleString()} 件。
+    </div>
+  `;
+  document.getElementById('modal-comp').classList.add('show');
+}
+
+function copyCompToListing() {
+  if(!currentCompProduct) return;
+  const p = currentCompProduct;
+  closeModal('modal-comp');
+  showPage('listing');
+  switchTab(null,'tab-manual');
+  const tabs = document.querySelectorAll('#page-listing .tabs .tab');
+  tabs.forEach((t,i) => t.classList.toggle('active', i===1));
+  setTimeout(() => {
+    document.getElementById('m-title').value = p.title;
+    document.getElementById('m-price').value = p.price;
+    document.getElementById('m-keywords').value = p.keywords;
+    showToast('✅ 已参考竞品填入信息，请补充成本等数据');
+  }, 100);
+}
+
+// ===== CALCULATOR =====
+function calcProfit() {
+  const rate = parseFloat(document.getElementById('c-rate').value)||7.25;
+  const costCNY = parseFloat(document.getElementById('c-cost').value)||0;
+  const shippingCNY = parseFloat(document.getElementById('c-shipping').value)||0;
+  const commission = parseFloat(document.getElementById('c-commission').value)||0;
+  const creator = parseFloat(document.getElementById('c-creator').value)||0;
+  const adsCNY = parseFloat(document.getElementById('c-ads').value)||0;
+  const sell = parseFloat(document.getElementById('c-sell').value)||0;
+  
+  const costUSD = costCNY / rate;
+  const shippingUSD = shippingCNY / rate;
+  const adsUSD = adsCNY / rate;
+  const commTotal = sell * (commission + creator) / 100;
+  const totalCost = costUSD + shippingUSD + adsUSD + commTotal;
+  const profit = sell - totalCost;
+  const margin = sell ? (profit/sell*100).toFixed(1) : 0;
+  
+  document.getElementById('r-cost').textContent = `$${costUSD.toFixed(2)}`;
+  document.getElementById('r-shipping').textContent = `$${shippingUSD.toFixed(2)}`;
+  document.getElementById('r-comm').textContent = `$${commTotal.toFixed(2)}`;
+  document.getElementById('r-ads').textContent = `$${adsUSD.toFixed(2)}`;
+  document.getElementById('r-total-cost').textContent = `$${totalCost.toFixed(2)}`;
+  document.getElementById('r-sell').textContent = `$${sell.toFixed(2)}`;
+  document.getElementById('r-profit').textContent = `$${profit.toFixed(2)}`;
+  document.getElementById('r-margin').textContent = `${margin}%`;
+  
+  calcSuggest();
+  calcMonthly();
+}
+
+function calcSuggest() {
+  const rate = parseFloat(document.getElementById('c-rate').value)||7.25;
+  const costCNY = parseFloat(document.getElementById('c-cost').value)||0;
+  const shippingCNY = parseFloat(document.getElementById('c-shipping').value)||0;
+  const commission = parseFloat(document.getElementById('c-commission').value)||0;
+  const creator = parseFloat(document.getElementById('c-creator').value)||0;
+  const adsCNY = parseFloat(document.getElementById('c-ads').value)||0;
+  const target = parseFloat(document.getElementById('c-target').value)||30;
+  
+  document.getElementById('suggest-rate').textContent = target;
+  
+  const fixedCost = (costCNY + shippingCNY + adsCNY) / rate;
+  // sell * (1 - target/100 - commRate) = fixedCost
+  const commRate = (commission + creator) / 100;
+  const suggestPrice = fixedCost / (1 - target/100 - commRate);
+  
+  document.getElementById('suggest-price').textContent = `$${suggestPrice.toFixed(2)}`;
+  document.getElementById('price-range-suggest').textContent = `$${(suggestPrice*0.95).toFixed(2)} - $${(suggestPrice*1.3).toFixed(2)}`;
+}
+
+function calcMonthly() {
+  const monthly = parseInt(document.getElementById('c-monthly').value)||0;
+  const sell = parseFloat(document.getElementById('c-sell').value)||0;
+  const rate = parseFloat(document.getElementById('c-rate').value)||7.25;
+  const costCNY = parseFloat(document.getElementById('c-cost').value)||0;
+  const shippingCNY = parseFloat(document.getElementById('c-shipping').value)||0;
+  const commission = parseFloat(document.getElementById('c-commission').value)||0;
+  const creator = parseFloat(document.getElementById('c-creator').value)||0;
+  const adsCNY = parseFloat(document.getElementById('c-ads').value)||0;
+  
+  const revenue = monthly * sell;
+  const commTotal = sell * (commission + creator) / 100;
+  const perCost = (costCNY + shippingCNY + adsCNY) / rate + commTotal;
+  const totalCost = monthly * perCost;
+  const profit = revenue - totalCost;
+  
+  document.getElementById('m-revenue').textContent = `$${revenue.toFixed(2)}`;
+  document.getElementById('m-cost-total').textContent = `$${totalCost.toFixed(2)}`;
+  document.getElementById('m-profit').textContent = `$${profit.toFixed(2)}`;
+}
+
+// ===== RECORDS =====
+function renderRecords() {
+  const tbody = document.getElementById('records-body');
+  if(!records.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px">暂无上架记录</td></tr>';
+    return;
+  }
+  tbody.innerHTML = records.map(r => `
+    <tr>
+      <td>${r.title.length>35?r.title.slice(0,35)+'...':r.title}</td>
+      <td>${r.sku}</td>
+      <td style="color:var(--primary);font-weight:600">$${r.price}</td>
+      <td><span class="status-tag ${r.status==='listed'?'tag-listed':r.status==='failed'?'tag-failed':'tag-pending'}">${r.status==='listed'?'已上架':r.status==='failed'?'失败':'处理中'}</span></td>
+      <td>${r.listedAt||r.createdAt}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${r.tkId||'-'}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="showToast('功能开发中')">查看</button></td>
+    </tr>
+  `).join('');
+}
+function filterRecords() { renderRecords(); }
+function exportRecords() {
+  if(!records.length) { showToast('❌ 没有记录可导出'); return; }
+  const data = records.map(r => ({ 商品名称:r.title, SKU:r.sku, 售价USD:r.price, 状态:r.status, 上架时间:r.listedAt||r.createdAt, TK商品ID:r.tkId||'' }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '上架记录');
+  XLSX.writeFile(wb, `上架记录_${new Date().toLocaleDateString()}.xlsx`);
+  showToast('📤 已导出记录');
+}
+
+// ===== DASHBOARD =====
+function updateDashboard() {
+  const listed = products.filter(p=>p.status==='listed').length;
+  const draft = products.filter(p=>p.status==='draft').length;
+  const failed = products.filter(p=>p.status==='failed').length;
+  const pending = products.filter(p=>p.status==='pending').length;
+  
+  document.getElementById('stat-today').textContent = listed;
+  document.getElementById('stat-success').textContent = records.length;
+  document.getElementById('stat-draft').textContent = draft + pending;
+  document.getElementById('stat-failed').textContent = failed;
+  
+  const tbody = document.getElementById('recent-records');
+  if(!records.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:30px">暂无记录，请导入商品开始上架</td></tr>';
+    return;
+  }
+  tbody.innerHTML = records.slice(0,5).map(r => `
+    <tr>
+      <td>${r.title.length>30?r.title.slice(0,30)+'...':r.title}</td>
+      <td>${r.category}</td>
+      <td style="color:var(--primary)">$${r.price}</td>
+      <td><span class="status-tag tag-listed">已上架</span></td>
+      <td style="color:var(--text-muted)">${r.listedAt||r.createdAt}</td>
+    </tr>
+  `).join('');
+}
+
+// ===== KEYWORD OPTIMIZER =====
+const KEYWORD_TEMPLATES = {
+  "Women's Clothing": ['trendy','fashion','cute','casual','elegant','summer','streetwear','plus size'],
+  "Electronics": ['wireless','bluetooth','portable','fast charging','waterproof','noise cancelling'],
+  "Beauty & Personal Care": ['natural','organic','moisturizing','long lasting','cruelty free','vegan'],
+  "Home & Garden": ['modern','minimalist','space saving','easy install','multifunctional'],
+  "Sports & Outdoors": ['lightweight','breathable','anti-slip','durable','outdoor','performance']
+};
+function generateKeywords() {
+  const input = document.getElementById('kw-input').value.trim();
+  if(!input) { showToast('⚠️ 请输入商品信息'); return; }
+  const cat = document.getElementById('kw-category').value;
+  const market = document.getElementById('kw-market').value;
+  
+  const baseKW = KEYWORD_TEMPLATES[cat] || ['quality','trending','bestseller'];
+  const words = input.split(/[\s,/，]+/).filter(w=>w.length>2).slice(0,4);
+  
+  const titles = [
+    `${words.join(' ')} ${baseKW[0]} ${baseKW[1]} for ${market.split('（')[0]}`,
+    `[2024 New] ${words[0]||''} ${baseKW[0]} ${baseKW[2]||''} - ${words.slice(1).join(' ')||'Hot Sale'}`,
+    `${baseKW[0].charAt(0).toUpperCase()+baseKW[0].slice(1)} ${words.join(' ')} ${baseKW[1]} ${baseKW[3]||'Women/Men'}`
+  ];
+  
+  const allTags = [...words, ...baseKW, 'tiktok', 'trending', 'hot sale', 'free shipping', 'wholesale'];
+  
+  document.getElementById('kw-titles').innerHTML = titles.map((t,i) => `
+    <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">方案 ${i+1} · ${t.length}字符 ${t.length>80?'<span style=color:var(--danger)>偏长</span>':t.length>60?'<span style=color:var(--success)>✓ 最佳</span>':'<span style=color:var(--warning)>偏短</span>'}</div>
+        <div style="font-size:13px">${t}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('${t.replace(/'/g,'')}');showToast('✅ 已复制')">复制</button>
+    </div>
+  `).join('');
+  
+  document.getElementById('kw-tags').innerHTML = allTags.map(t => `<span class="keyword-tag" onclick="navigator.clipboard.writeText('${t}');showToast('✅ 已复制: ${t}')">${t}</span>`).join('');
+  
+  document.getElementById('kw-result').style.display = 'block';
+}
+
+// ===== SETTINGS =====
+function saveSettings() {
+  settings.email = document.getElementById('s-email').value;
+  settings.shop = document.getElementById('s-shop').value;
+  showToast('✅ 设置已保存');
+}
+function showPlaywrightGuide() { document.getElementById('modal-guide').classList.add('show'); }
+function exportProductsJSON() {
+  if(!products.length) { showToast('❌ 没有商品数据'); return; }
+  const blob = new Blob([JSON.stringify(products, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'products.json';
+  a.click();
+  showToast('📥 已导出 products.json');
+}
+
+// ===== UTILS =====
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  calcProfit();
+  renderHotKeywords();
+  
+  // 示例数据
+  products = [
+    { id:1, title:'Floral Summer Dress Women V-Neck Casual', price:12.99, cost:28, stock:100, category:'服装配饰', sku:'SKU001', keywords:'summer dress, women fashion', status:'listed', listedAt:'2026-04-14 10:23', tkId:'TKAB3F29C1', desc:'', createdAt:'2026-04-14 09:00' },
+    { id:2, title:'Wireless TWS Earbuds Bluetooth 5.3 Noise Cancelling', price:22.99, cost:55, stock:50, category:'电子产品', sku:'SKU002', keywords:'earbuds, bluetooth wireless', status:'pending', listedAt:'', tkId:'', desc:'', createdAt:'2026-04-14 09:10' },
+    { id:3, title:'Stainless Steel Kitchen Knife Set Professional', price:19.99, cost:42, stock:80, category:'家居生活', sku:'SKU003', keywords:'knife set, kitchen tool', status:'draft', listedAt:'', tkId:'', desc:'', createdAt:'2026-04-14 09:20' }
+  ];
+  records = [
+    {...products[0], listedAt:'2026-04-14 10:23'}
+  ];
+  updateDashboard();
+});
+
+// 点击 modal 外部关闭
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if(e.target === this) this.classList.remove('show');
+  });
+});
+</script>
+</body>
+</html>
